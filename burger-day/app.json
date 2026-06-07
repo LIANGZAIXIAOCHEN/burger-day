@@ -1,0 +1,64 @@
+{
+  "expo": {
+    "name": "堡了么",
+    "slug": "burger-day",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#FFC72C"
+    },
+    "ios": {
+      "bundleIdentifier": "com.burgerday.app",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Allow Burger Day to access your photo library to upload burger photos.",
+        "NSCameraUsageDescription": "Allow Burger Day to use your camera to take burger photos.",
+        "NSLocationWhenInUseUsageDescription": "Allow Burger Day to access your location to find nearby McDonald's."
+      }
+    },
+    "android": {
+      "package": "com.burgerday.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#FFC72C",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "READ_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-localization",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Burger Day to access your location to find nearby McDonald's.",
+          "locationWhenInUsePermission": "Allow Burger Day to access your location to find nearby McDonald's."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Burger Day to access your photo library.",
+          "cameraPermission": "Allow Burger Day to use your camera."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "YOUR_EAS_PROJECT_ID"
+      }
+    }
+  }
+}
