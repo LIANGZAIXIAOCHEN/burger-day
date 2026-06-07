@@ -12,9 +12,10 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../supabase/client';
 import { useAuth } from '../../context/AuthContext';
-import { colors, spacing, borderRadius } from '../../theme';
+import { colors, spacing, borderRadius, shadows } from '../../theme';
 import type { Burger, Reward } from '../../lib/database.types';
 
 export default function RewardsScreen() {
@@ -26,17 +27,17 @@ export default function RewardsScreen() {
   const [loading, setLoading] = useState(true);
   const [redeeming, setRedeeming] = useState<string | null>(null);
 
+  const points = isGuest ? (guestProfile?.total_points ?? 0) : (profile?.total_points ?? 0);
+
   useEffect(() => {
     fetchData();
   }, []);
 
   const fetchData = async () => {
     setLoading(true);
-    // Fetch available burgers (rewards catalog)
     const { data: burgerData } = await supabase.from('burgers').select('*');
     if (burgerData) setBurgers(burgerData as Burger[]);
 
-    // Fetch user's redeemed rewards
     if (user) {
       const { data: rewardData } = await supabase
         .from('rewards')
@@ -50,12 +51,11 @@ export default function RewardsScreen() {
   };
 
   const handleRedeem = async (burger: Burger) => {
-    if (!user || !profile) {
-      if (isGuest) {
-        Alert.alert(t('auth.login'), t('profile.loginPrompt'));
-      }
+    if (isGuest) {
+      Alert.alert(t('auth.login'), t('profile.loginPrompt'));
       return;
     }
+    if (!user || !profile) return;
 
     if (profile.total_points < burger.points_reward) {
       Alert.alert(t('rewards.insufficientPoints'));
@@ -72,25 +72,20 @@ export default function RewardsScreen() {
           onPress: async () => {
             setRedeeming(burger.id);
             try {
-              // Generate voucher code
               const voucherCode = `BD-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
 
-              // Insert reward record
               const { error: rewardError } = await supabase.from('rewards').insert({
                 user_id: user.id,
                 voucher_code: voucherCode,
                 points_cost: burger.points_reward,
                 is_redeemed: false,
               });
-
               if (rewardError) throw rewardError;
 
-              // Deduct points from user profile
               const { error: pointsError } = await supabase
                 .from('profiles')
                 .update({ total_points: profile.total_points - burger.points_reward })
                 .eq('id', user.id);
-
               if (pointsError) throw pointsError;
 
               await refreshProfile();
@@ -106,37 +101,42 @@ export default function RewardsScreen() {
     );
   };
 
-  const renderRewardItem = ({ item }: { item: Burger }) => (
-    <View style={styles.rewardCard}>
-      <Image
-        source={{ uri: item.image_url || 'https://via.placeholder.com/200' }}
-        style={styles.rewardImage}
-      />
-      <View style={styles.rewardInfo}>
-        <Text style={styles.rewardName}>{item.name_zh_cn}</Text>
-        <Text style={styles.rewardNameEn}>{item.name_en}</Text>
-        <Text style={styles.rewardPoints}>
-          {item.points_reward} {t('rewards.pointsPrefix')}
-        </Text>
-      </View>
+  const renderRewardItem = ({ item }: { item: Burger }) => {
+    const isDisabled = isGuest || points < item.points_reward;
+
+    return (
       <TouchableOpacity
-        style={[
-          styles.redeemButton,
-          (isGuest || (profile && profile.total_points < item.points_reward)) && styles.redeemButtonDisabled,
-        ]}
+        style={[styles.rewardCard, isDisabled && styles.rewardCardDisabled]}
+        activeOpacity={0.85}
         onPress={() => handleRedeem(item)}
-        disabled={isGuest || redeeming === item.id}
       >
+        <Image
+          source={{ uri: item.image_url || 'https://via.placeholder.com/200' }}
+          style={styles.rewardImage}
+        />
+        <View style={styles.rewardInfo}>
+          <Text style={styles.rewardName}>{item.name_zh_cn}</Text>
+          <Text style={styles.rewardNameEn}>{item.name_en}</Text>
+          <View style={styles.pointsRow}>
+            <Text style={styles.rewardPoints}>
+              {item.points_reward} pts
+            </Text>
+          </View>
+        </View>
         {redeeming === item.id ? (
-          <ActivityIndicator color={colors.textInverse} size="small" />
+          <ActivityIndicator color={colors.accent} size="small" />
+        ) : isGuest ? (
+          <Text style={styles.lockIcon}>🔒</Text>
         ) : (
-          <Text style={styles.redeemButtonText}>
-            {isGuest ? t('auth.login') : t('rewards.redeem')}
-          </Text>
+          <View style={styles.redeemBadge}>
+            <Text style={styles.redeemBadgeText}>
+              {t('rewards.redeem')}
+            </Text>
+          </View>
         )}
       </TouchableOpacity>
-    </View>
-  );
+    );
+  };
 
   const renderVoucherItem = ({ item }: { item: Reward }) => (
     <View style={[styles.voucherCard, item.is_redeemed && styles.voucherCardUsed]}>
@@ -145,9 +145,9 @@ export default function RewardsScreen() {
       </View>
       <View style={styles.voucherInfo}>
         <Text style={styles.voucherCode}>{item.voucher_code}</Text>
-        <Text style={styles.voucherPoints}>-{item.points_cost} {t('rewards.pointsPrefix')}</Text>
+        <Text style={styles.voucherPoints}>-{item.points_cost} pts</Text>
         <Text style={styles.voucherStatus}>
-          {item.is_redeemed ? '✓ ' + t('rewards.redeemed') : '⏳ ' + t('rewards.redeem')}
+          {item.is_redeemed ? '✓ ' + t('rewards.redeemed') : '⏳ ' + t('rewards.active')}
         </Text>
       </View>
     </View>
@@ -155,16 +155,22 @@ export default function RewardsScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Header with points */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{t('rewards.title')}</Text>
-        <Text style={styles.headerPoints}>
-          {isGuest ? (guestProfile?.total_points ?? 0) : (profile?.total_points ?? 0)} {t('rewards.pointsPrefix')}
-        </Text>
+        <View style={styles.pointsBadge}>
+          <LinearGradient
+            colors={[colors.primary, colors.primaryDark]}
+            style={styles.pointsBadgeGrad}
+          >
+            <Text style={styles.pointsBadgeText}>⭐ {points} pts</Text>
+          </LinearGradient>
+        </View>
       </View>
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator color={colors.primary} size="large" />
+          <ActivityIndicator color={colors.accent} size="large" />
         </View>
       ) : (
         <FlatList
@@ -172,16 +178,10 @@ export default function RewardsScreen() {
           renderItem={renderRewardItem}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyEmoji}>🎁</Text>
-              <Text style={styles.emptyText}>{t('rewards.noRewards')}</Text>
-            </View>
-          }
           ListHeaderComponent={
             rewards.length > 0 ? (
               <View style={styles.vouchersSection}>
-                <Text style={styles.sectionTitle}>{t('rewards.myVouchers')}</Text>
+                <Text style={styles.sectionTitle}>🎫 {t('rewards.myVouchers')}</Text>
                 {rewards.map(reward => (
                   <View key={reward.id}>
                     {renderVoucherItem({ item: reward })}
@@ -189,6 +189,12 @@ export default function RewardsScreen() {
                 ))}
               </View>
             ) : null
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyEmoji}>🎁</Text>
+              <Text style={styles.emptyText}>{t('rewards.noRewards')}</Text>
+            </View>
           }
         />
       )}
@@ -199,7 +205,7 @@ export default function RewardsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.backgroundSecondary,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -212,14 +218,23 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.borderLight,
   },
   headerTitle: {
-    fontSize: 22,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '800',
     color: colors.textPrimary,
+    letterSpacing: -0.5,
   },
-  headerPoints: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.accent,
+  pointsBadge: {
+    borderRadius: borderRadius.full,
+    overflow: 'hidden',
+  },
+  pointsBadgeGrad: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  pointsBadgeText: {
+    color: colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '700',
   },
   loadingContainer: {
     flex: 1,
@@ -230,79 +245,14 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     paddingBottom: 100,
   },
-  rewardCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  rewardImage: {
-    width: 60,
-    height: 60,
-    borderRadius: borderRadius.sm,
-    backgroundColor: colors.backgroundSecondary,
-  },
-  rewardInfo: {
-    flex: 1,
-    marginLeft: spacing.md,
-  },
-  rewardName: {
+  sectionTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  rewardNameEn: {
-    fontSize: 12,
-    color: colors.textTertiary,
-    marginTop: 2,
-  },
-  rewardPoints: {
-    fontSize: 14,
     fontWeight: '700',
-    color: colors.accent,
-    marginTop: spacing.xs,
-  },
-  redeemButton: {
-    backgroundColor: colors.accent,
-    borderRadius: borderRadius.sm,
-    paddingVertical: 8,
-    paddingHorizontal: spacing.lg,
-  },
-  redeemButtonDisabled: {
-    backgroundColor: colors.border,
-  },
-  redeemButtonText: {
-    color: colors.textInverse,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    paddingTop: 60,
-  },
-  emptyEmoji: {
-    fontSize: 48,
-    marginBottom: spacing.lg,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: colors.textSecondary,
+    color: colors.textPrimary,
+    marginBottom: spacing.md,
   },
   vouchersSection: {
     marginBottom: spacing.xl,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: spacing.md,
   },
   voucherCard: {
     flexDirection: 'row',
@@ -313,6 +263,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     borderLeftWidth: 4,
     borderLeftColor: colors.primary,
+    ...shadows.card,
   },
   voucherCardUsed: {
     opacity: 0.6,
@@ -342,5 +293,77 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textTertiary,
     marginTop: 2,
+  },
+
+  // Reward cards
+  rewardCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    ...shadows.card,
+  },
+  rewardCardDisabled: {
+    opacity: 0.7,
+  },
+  rewardImage: {
+    width: 64,
+    height: 64,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.backgroundSecondary,
+  },
+  rewardInfo: {
+    flex: 1,
+    marginLeft: spacing.md,
+  },
+  rewardName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  rewardNameEn: {
+    fontSize: 12,
+    color: colors.textTertiary,
+    marginTop: 2,
+  },
+  pointsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.xs,
+    gap: spacing.xs,
+  },
+  rewardPoints: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.accent,
+  },
+  lockIcon: {
+    fontSize: 20,
+  },
+  redeemBadge: {
+    backgroundColor: colors.accent,
+    borderRadius: borderRadius.sm,
+    paddingVertical: 6,
+    paddingHorizontal: spacing.md,
+  },
+  redeemBadgeText: {
+    color: colors.textInverse,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingTop: 80,
+  },
+  emptyEmoji: {
+    fontSize: 56,
+    marginBottom: spacing.lg,
+    opacity: 0.6,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: colors.textSecondary,
   },
 });

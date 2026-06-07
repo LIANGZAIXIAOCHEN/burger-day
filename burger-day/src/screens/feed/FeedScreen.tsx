@@ -12,12 +12,14 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../supabase/client';
-import { colors, spacing, borderRadius } from '../../theme';
+import { colors, spacing, borderRadius, shadows } from '../../theme';
 import type { Post } from '../../lib/database.types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = (SCREEN_WIDTH - spacing.lg * 3) / 2;
+const CARD_HEIGHT = CARD_WIDTH * 1.45;
 
 export default function FeedScreen() {
   const { t } = useTranslation();
@@ -90,54 +92,55 @@ export default function FeedScreen() {
     const username = (item.profile as any)?.username || 'Anonymous';
     const avatarUrl = (item.profile as any)?.avatar_url;
     const photoUrl = Array.isArray(photoUrls) && photoUrls.length > 0 ? photoUrls[0] : null;
+    const rating = (item.checkin as any)?.rating || 0;
+    // Alternate tilt for polaroid feel
+    const tilt = index % 3 === 0 ? -2 : index % 3 === 1 ? 1 : 0;
 
     return (
       <TouchableOpacity
         style={[
           styles.card,
-          index % 2 === 1 ? { marginLeft: spacing.sm } : { marginRight: spacing.sm },
+          { marginLeft: index % 2 === 0 ? 0 : spacing.sm, marginRight: index % 2 === 0 ? spacing.sm : 0 },
+          { transform: [{ rotate: tilt + 'deg' }] },
         ]}
-        activeOpacity={0.9}
+        activeOpacity={0.92}
       >
-        {/* Photo */}
-        {photoUrl ? (
-          <Image source={{ uri: photoUrl }} style={styles.cardImage} />
-        ) : (
-          <View style={[styles.cardImage, styles.cardImagePlaceholder]}>
-            <Text style={styles.placeholderEmoji}>🍔</Text>
-          </View>
-        )}
-
-        {/* Content */}
-        <View style={styles.cardContent}>
-          {/* Store name */}
-          <Text style={styles.storeName} numberOfLines={1}>
-            {storeName || 'McDonald\'s'}
-          </Text>
-
-          {/* Rating */}
-          {(item.checkin as any)?.rating && (
-            <Text style={styles.rating}>
-              {'⭐'.repeat((item.checkin as any).rating)}
-            </Text>
+        {/* Polaroid photo area */}
+        <View style={styles.cardImageWrap}>
+          {photoUrl ? (
+            <Image source={{ uri: photoUrl }} style={styles.cardImage} />
+          ) : (
+            <View style={[styles.cardImage, styles.cardImagePlaceholder]}>
+              <Text style={styles.placeholderEmoji}>🍔</Text>
+            </View>
           )}
+          <LinearGradient
+            colors={['transparent', 'rgba(0,0,0,0.4)']}
+            style={styles.cardOverlay}
+          />
+          <Text style={styles.cardStoreOverlay} numberOfLines={1}>
+            {storeName || "McDonald's"}
+          </Text>
+        </View>
 
-          {/* User & actions */}
-          <View style={styles.cardFooter}>
-            <View style={styles.userRow}>
-              <View style={[styles.avatar, !avatarUrl && styles.avatarPlaceholder]}>
-                {avatarUrl ? (
-                  <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
-                ) : (
-                  <Text style={styles.avatarText}>😊</Text>
-                )}
-              </View>
-              <Text style={styles.username} numberOfLines={1}>{username}</Text>
+        {/* Polaroid bottom area */}
+        <View style={styles.cardContent}>
+          {rating > 0 && (
+            <Text style={styles.ratingText}>{'⭐'.repeat(rating)}</Text>
+          )}
+          <View style={styles.userRow}>
+            <View style={[styles.avatar, !avatarUrl && styles.avatarPlaceholder]}>
+              {avatarUrl ? (
+                <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+              ) : (
+                <Text style={styles.avatarEmoji}>😊</Text>
+              )}
             </View>
-            <View style={styles.actions}>
-              <Text style={styles.actionText}>❤️ {item.like_count || 0}</Text>
-              <Text style={styles.actionText}>💬 {item.comment_count || 0}</Text>
-            </View>
+            <Text style={styles.username} numberOfLines={1}>{username}</Text>
+          </View>
+          <View style={styles.actions}>
+            <Text style={styles.actionItem}>❤️ {item.like_count || 0}</Text>
+            <Text style={styles.actionItem}>💬 {item.comment_count || 0}</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -147,8 +150,13 @@ export default function FeedScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t('feed.title')}</Text>
-        <Text style={styles.headerEmoji}>🍔</Text>
+        <View>
+          <Text style={styles.headerTitle}>{t('feed.title')}</Text>
+          <Text style={styles.headerSub}>Discover burger moments</Text>
+        </View>
+        <View style={styles.headerBadge}>
+          <Text style={styles.headerEmoji}>🍔</Text>
+        </View>
       </View>
 
       <FlatList
@@ -159,7 +167,12 @@ export default function FeedScreen() {
         contentContainerStyle={styles.listContent}
         columnWrapperStyle={styles.columnWrapper}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.accent}
+            colors={[colors.accent]}
+          />
         }
         onEndReached={onLoadMore}
         onEndReachedThreshold={0.5}
@@ -167,15 +180,15 @@ export default function FeedScreen() {
           !loading ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyEmoji}>📸</Text>
-              <Text style={styles.emptyText}>{t('common.noData')}</Text>
-              <Text style={styles.emptySubtext}>Be the first to check in!</Text>
+              <Text style={styles.emptyTitle}>No moments yet</Text>
+              <Text style={styles.emptySub}>Be the first to check in!</Text>
             </View>
           ) : null
         }
         ListFooterComponent={
           loading && posts.length > 0 ? (
             <View style={styles.footer}>
-              <ActivityIndicator color={colors.primary} />
+              <ActivityIndicator color={colors.accent} />
             </View>
           ) : null
         }
@@ -187,7 +200,7 @@ export default function FeedScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.backgroundSecondary,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -200,12 +213,26 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.borderLight,
   },
   headerTitle: {
-    fontSize: 22,
-    fontWeight: '700',
+    fontSize: 26,
+    fontWeight: '800',
     color: colors.textPrimary,
+    letterSpacing: -0.5,
+  },
+  headerSub: {
+    fontSize: 12,
+    color: colors.textTertiary,
+    marginTop: 2,
+  },
+  headerBadge: {
+    backgroundColor: colors.backgroundSecondary,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerEmoji: {
-    fontSize: 24,
+    fontSize: 22,
   },
   listContent: {
     padding: spacing.lg,
@@ -218,17 +245,20 @@ const styles = StyleSheet.create({
     width: CARD_WIDTH,
     backgroundColor: colors.card,
     borderRadius: borderRadius.lg,
-    marginBottom: spacing.md,
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    marginBottom: spacing.lg,
+    ...shadows.card,
+  },
+  cardImageWrap: {
+    width: '100%',
+    height: CARD_HEIGHT * 0.7,
+    borderTopLeftRadius: borderRadius.lg,
+    borderTopRightRadius: borderRadius.lg,
     overflow: 'hidden',
+    position: 'relative',
   },
   cardImage: {
     width: '100%',
-    height: CARD_WIDTH * 1.2,
+    height: '100%',
     resizeMode: 'cover',
   },
   cardImagePlaceholder: {
@@ -238,35 +268,44 @@ const styles = StyleSheet.create({
   },
   placeholderEmoji: {
     fontSize: 40,
+    opacity: 0.5,
+  },
+  cardOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 60,
+  },
+  cardStoreOverlay: {
+    position: 'absolute',
+    bottom: spacing.sm,
+    left: spacing.md,
+    right: spacing.md,
+    color: colors.textInverse,
+    fontSize: 13,
+    fontWeight: '700',
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   cardContent: {
     padding: spacing.md,
+    paddingTop: spacing.sm,
   },
-  storeName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textPrimary,
+  ratingText: {
+    fontSize: 11,
     marginBottom: spacing.xs,
-  },
-  rating: {
-    fontSize: 12,
-    marginBottom: spacing.sm,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
   },
   userRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    flex: 1,
   },
   avatar: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     overflow: 'hidden',
   },
   avatarPlaceholder: {
@@ -275,12 +314,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatarImage: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
   },
-  avatarText: {
-    fontSize: 12,
+  avatarEmoji: {
+    fontSize: 11,
   },
   username: {
     fontSize: 11,
@@ -290,24 +329,27 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     gap: spacing.sm,
+    marginTop: spacing.xs,
   },
-  actionText: {
+  actionItem: {
     fontSize: 11,
     color: colors.textTertiary,
   },
   emptyContainer: {
     alignItems: 'center',
-    paddingTop: 80,
+    paddingTop: 100,
   },
   emptyEmoji: {
-    fontSize: 48,
+    fontSize: 56,
     marginBottom: spacing.lg,
+    opacity: 0.6,
   },
-  emptyText: {
-    fontSize: 16,
-    color: colors.textSecondary,
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textPrimary,
   },
-  emptySubtext: {
+  emptySub: {
     fontSize: 13,
     color: colors.textTertiary,
     marginTop: spacing.xs,

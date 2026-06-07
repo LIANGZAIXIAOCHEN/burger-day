@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, spacing, borderRadius } from '../../theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { colors, spacing, borderRadius, shadows } from '../../theme';
 import { useAuth } from '../../context/AuthContext';
 import type { RootStackParamList } from '../../navigation/AppNavigator';
 
@@ -45,7 +46,6 @@ export default function RegisterScreen({ navigation }: Props) {
     try {
       const result = await signUp(email.trim(), password);
       if (result === 'auto-login') {
-        // Automatically logged in — dismiss modal
         if (navigation.canGoBack()) {
           navigation.goBack();
         }
@@ -68,56 +68,92 @@ export default function RegisterScreen({ navigation }: Props) {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View style={styles.header}>
-        <Text style={styles.logo}>🍔</Text>
+      <LinearGradient
+        colors={[colors.background, colors.backgroundSecondary, colors.backgroundTertiary]}
+        style={StyleSheet.absoluteFill}
+      />
+
+      <View style={styles.graphicSection}>
+        <View style={styles.floatingBadge}>
+          <Text style={styles.burgerEmoji}>🍔</Text>
+        </View>
         <Text style={styles.title}>{t('auth.registerTitle')}</Text>
         <Text style={styles.subtitle}>{t('auth.registerSubtitle')}</Text>
       </View>
 
-      <View style={styles.form}>
-        <TextInput
-          style={styles.input}
-          placeholder={t('auth.emailPlaceholder')}
-          placeholderTextColor={colors.textTertiary}
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder={t('auth.passwordPlaceholder')}
-          placeholderTextColor={colors.textTertiary}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
-        <TextInput
-          style={styles.input}
-          placeholder={t('auth.confirmPassword')}
-          placeholderTextColor={colors.textTertiary}
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry
-        />
+      <View style={styles.formCard}>
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Email</Text>
+          <TextInput
+            style={styles.input}
+            placeholder={t('auth.emailPlaceholder')}
+            placeholderTextColor={colors.textTertiary}
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Password</Text>
+          <TextInput
+            style={styles.input}
+            placeholder={t('auth.passwordPlaceholder')}
+            placeholderTextColor={colors.textTertiary}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>{t('auth.confirmPassword')}</Text>
+          <TextInput
+            style={styles.input}
+            placeholder={t('auth.confirmPassword')}
+            placeholderTextColor={colors.textTertiary}
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry
+          />
+        </View>
+
         <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
+          style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
           onPress={handleRegister}
           disabled={loading}
+          activeOpacity={0.85}
         >
-          {loading ? (
-            <ActivityIndicator color={colors.textInverse} />
-          ) : (
-            <Text style={styles.buttonText}>{t('auth.register')}</Text>
-          )}
+          <LinearGradient
+            colors={[colors.gradientStart, colors.gradientEnd]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.submitGrad}
+          >
+            {loading ? (
+              <ActivityIndicator color={colors.textInverse} />
+            ) : (
+              <Text style={styles.submitText}>{t('auth.register')}</Text>
+            )}
+          </LinearGradient>
         </TouchableOpacity>
-      </View>
 
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>{t('auth.hasAccount')}</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-          <Text style={styles.footerLink}>{t('auth.loginNow')}</Text>
+        <View style={styles.divider}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>or</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
+        <TouchableOpacity
+          style={styles.linkBtn}
+          onPress={() => navigation.navigate('Login')}
+        >
+          <Text style={styles.linkText}>
+            {t('auth.hasAccount')}{' '}
+            <Text style={styles.linkHighlight}>{t('auth.loginNow')}</Text>
+          </Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -127,71 +163,107 @@ export default function RegisterScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
     justifyContent: 'center',
     paddingHorizontal: spacing.xxl,
   },
-  header: {
+  graphicSection: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: spacing.xxl,
   },
-  logo: {
-    fontSize: 64,
+  floatingBadge: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.card,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: spacing.lg,
+    ...shadows.floating,
+  },
+  burgerEmoji: {
+    fontSize: 38,
   },
   title: {
     fontSize: 28,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.textPrimary,
-    marginBottom: spacing.sm,
+    letterSpacing: -0.5,
+    marginBottom: spacing.xs,
   },
   subtitle: {
     fontSize: 15,
     color: colors.textSecondary,
     textAlign: 'center',
   },
-  form: {
-    gap: spacing.md,
+  formCard: {
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.xl,
+    padding: spacing.xxl,
+    ...shadows.card,
+  },
+  inputGroup: {
+    marginBottom: spacing.lg,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: colors.backgroundSecondary,
+    backgroundColor: colors.background,
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.lg,
-    paddingVertical: 14,
+    paddingVertical: 15,
     fontSize: 16,
     color: colors.textPrimary,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
   },
-  button: {
-    backgroundColor: colors.accent,
+  submitBtn: {
     borderRadius: borderRadius.md,
-    paddingVertical: 14,
-    alignItems: 'center',
+    overflow: 'hidden',
     marginTop: spacing.sm,
+    ...shadows.button,
   },
-  buttonDisabled: {
+  submitBtnDisabled: {
     opacity: 0.7,
   },
-  buttonText: {
+  submitGrad: {
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  submitText: {
     color: colors.textInverse,
     fontSize: 17,
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  footer: {
+  divider: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 32,
-    gap: spacing.xs,
+    marginVertical: spacing.xxl,
   },
-  footerText: {
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.borderLight,
+  },
+  dividerText: {
+    marginHorizontal: spacing.md,
+    color: colors.textTertiary,
+    fontSize: 13,
+  },
+  linkBtn: {
+    alignItems: 'center',
+  },
+  linkText: {
+    fontSize: 14,
     color: colors.textSecondary,
-    fontSize: 14,
   },
-  footerLink: {
+  linkHighlight: {
     color: colors.accent,
-    fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });

@@ -11,6 +11,7 @@
     "babel-preset-expo": "^56.0.14",
     "expo": "~56.0.9",
     "expo-image-picker": "~56.0.16",
+    "expo-linear-gradient": "~56.0.4",
     "expo-localization": "~56.0.6",
     "expo-location": "~56.0.16",
     "expo-secure-store": "~56.0.4",

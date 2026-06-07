@@ -12,9 +12,17 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../context/AuthContext';
-import { colors, spacing, borderRadius } from '../../theme';
+import { colors, spacing, borderRadius, shadows } from '../../theme';
 import type { RootStackParamList } from '../../navigation/AppNavigator';
+
+type StatItem = {
+  label: string;
+  value: number;
+  emoji: string;
+  color: string;
+};
 
 export default function ProfileScreen() {
   const { t } = useTranslation();
@@ -29,8 +37,7 @@ export default function ProfileScreen() {
     ]);
   };
 
-  // Use real profile if logged in, or guest profile for local mode
-  const displayProfile = {
+  const dp = {
     username: session ? (profile?.username ?? 'Burger Lover') : (guestProfile?.username ?? 'Burger Lover'),
     avatar_url: session ? profile?.avatar_url : guestProfile?.avatar_url,
     total_points: session ? (profile?.total_points ?? 0) : (guestProfile?.total_points ?? 0),
@@ -39,136 +46,120 @@ export default function ProfileScreen() {
     max_streak: session ? (profile?.max_streak ?? 0) : (guestProfile?.max_streak ?? 0),
   };
 
-  const StatCard = ({ label, value, emoji }: { label: string; value: number; emoji: string }) => (
-    <View style={styles.statCard}>
-      <Text style={styles.statEmoji}>{emoji}</Text>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-
-  const MenuItem = ({ icon, label, onPress }: { icon: string; label: string; onPress: () => void }) => (
-    <TouchableOpacity style={styles.menuItem} onPress={onPress}>
-      <Text style={styles.menuIcon}>{icon}</Text>
-      <Text style={styles.menuLabel}>{label}</Text>
-      <Text style={styles.menuArrow}>›</Text>
-    </TouchableOpacity>
-  );
+  const stats: StatItem[] = [
+    { label: t('profile.totalPoints'), value: dp.total_points, emoji: '⭐', color: '#FFF3CC' },
+    { label: t('profile.totalCheckins'), value: dp.total_checkins, emoji: '📋', color: '#E8F4FD' },
+    { label: t('profile.currentStreak'), value: dp.current_streak, emoji: '🔥', color: '#FFE8E0' },
+    { label: t('profile.maxStreak'), value: dp.max_streak, emoji: '🏆', color: '#FFF0CC' },
+  ];
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
+      {/* Header */}
+      <LinearGradient
+        colors={[colors.background, colors.backgroundSecondary]}
+        style={styles.header}
+      >
         <Text style={styles.headerTitle}>{t('profile.title')}</Text>
-        {isGuest && (
-          <Text style={styles.guestBadge}>Guest</Text>
-        )}
-      </View>
+        {isGuest && <View style={styles.guestBadge}><Text style={styles.guestBadgeText}>Guest</Text></View>}
+      </LinearGradient>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Profile Card */}
-        <View style={styles.profileCard}>
-          <View style={styles.avatarContainer}>
-            {displayProfile.avatar_url ? (
-              <Image source={{ uri: displayProfile.avatar_url }} style={styles.avatar} />
+        {/* ── Profile Hero ── */}
+        <View style={styles.heroSection}>
+          <View style={styles.heroBg}>
+            <LinearGradient
+              colors={[colors.primaryLight, colors.background]}
+              style={StyleSheet.absoluteFill}
+            />
+          </View>
+          <View style={styles.avatarWrap}>
+            {dp.avatar_url ? (
+              <Image source={{ uri: dp.avatar_url }} style={styles.avatar} />
             ) : (
               <View style={[styles.avatar, styles.avatarPlaceholder]}>
                 <Text style={styles.avatarEmoji}>{isGuest ? '👤' : '😊'}</Text>
               </View>
             )}
           </View>
-          <Text style={styles.username}>{displayProfile.username}</Text>
-          <Text style={styles.bio}>🍔 {t('app.tagline')}</Text>
+          <Text style={styles.username}>{dp.username}</Text>
+          <Text style={styles.tagline}>🍔 {t('app.tagline')}</Text>
           {isGuest && (
             <Text style={styles.guestHint}>{t('profile.loginPrompt')}</Text>
           )}
         </View>
 
-        {/* Stats Row */}
-        <View style={styles.statsRow}>
-          <StatCard
-            label={t('profile.totalPoints')}
-            value={displayProfile.total_points}
-            emoji="⭐"
-          />
-          <StatCard
-            label={t('profile.totalCheckins')}
-            value={displayProfile.total_checkins}
-            emoji="📋"
-          />
-          <StatCard
-            label={t('profile.currentStreak')}
-            value={displayProfile.current_streak}
-            emoji="🔥"
-          />
-          <StatCard
-            label={t('profile.maxStreak')}
-            value={displayProfile.max_streak}
-            emoji="🏆"
-          />
+        {/* ── Bento Stats Grid ── */}
+        <View style={styles.bentoGrid}>
+          {stats.map((stat, i) => (
+            <View
+              key={i}
+              style={[
+                styles.bentoItem,
+                i === 0 && styles.bentoHighlight,
+                { backgroundColor: stat.color },
+              ]}
+            >
+              <Text style={styles.bentoEmoji}>{stat.emoji}</Text>
+              <Text style={[styles.bentoValue, i === 0 && styles.bentoValueHighlight]}>
+                {stat.value}
+              </Text>
+              <Text style={styles.bentoLabel}>{stat.label}</Text>
+            </View>
+          ))}
         </View>
 
-        {/* Auth Buttons for Guest */}
+        {/* ── Auth Buttons (Guest) ── */}
         {isGuest && (
           <View style={styles.authSection}>
             <TouchableOpacity
-              style={styles.loginButton}
+              style={styles.loginBtn}
               onPress={() => navigation.navigate('Login')}
             >
-              <Text style={styles.loginButtonText}>{t('auth.login')}</Text>
+              <LinearGradient
+                colors={[colors.gradientStart, colors.gradientEnd]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.loginBtnGrad}
+              >
+                <Text style={styles.loginBtnText}>{t('auth.login')}</Text>
+              </LinearGradient>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.registerButton}
+              style={styles.registerBtn}
               onPress={() => navigation.navigate('Register')}
             >
-              <Text style={styles.registerButtonText}>{t('auth.register')}</Text>
+              <Text style={styles.registerBtnText}>{t('auth.register')}</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        {/* Menu Items */}
+        {/* ── Menu ── */}
         <View style={styles.menuSection}>
-          <MenuItem
-            icon="🏅"
-            label={t('profile.achievementWall')}
-            onPress={() => {}}
-          />
-          <MenuItem
-            icon="📅"
-            label={t('profile.checkinCalendar')}
-            onPress={() => {}}
-          />
-          <MenuItem
-            icon="📊"
-            label={t('profile.pointHistory')}
-            onPress={() => {}}
-          />
-          <MenuItem
-            icon="🎁"
-            label={t('profile.redeemStore')}
-            onPress={() => {}}
-          />
-          <MenuItem
-            icon="🌐"
-            label={t('profile.language')}
-            onPress={() => {}}
-          />
+          <MenuItem icon="🏅" label={t('profile.achievementWall')} onPress={() => {}} />
+          <MenuItem icon="📅" label={t('profile.checkinCalendar')} onPress={() => {}} />
+          <MenuItem icon="📊" label={t('profile.pointHistory')} onPress={() => {}} />
+          <MenuItem icon="🎁" label={t('profile.redeemStore')} onPress={() => {}} />
+          <MenuItem icon="🌐" label={t('profile.language')} onPress={() => {}} last />
         </View>
 
-        {/* Achievements Preview */}
-        <View style={styles.achievementsSection}>
-          <Text style={styles.sectionTitle}>{t('profile.achievements')}</Text>
+        {/* ── Achievements ── */}
+        <View style={styles.achievementSection}>
+          <Text style={styles.sectionTitle}>🏅 {t('profile.achievements')}</Text>
           <View style={styles.achievementGrid}>
             {achievementIcons.map((item, index) => (
-              <View key={index} style={styles.achievementItem}>
-                <Text style={styles.achievementIcon}>{item.locked ? '🔒' : item.icon}</Text>
+              <View key={index} style={[styles.achiItem, item.locked && styles.achiLocked]}>
+                <Text style={[styles.achiIcon, item.locked && styles.achiIconLocked]}>
+                  {item.locked ? '🔒' : item.icon}
+                </Text>
               </View>
             ))}
           </View>
         </View>
 
-        {/* Logout (only for logged-in users) */}
+        {/* ── Logout ── */}
         {!isGuest && (
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
             <Text style={styles.logoutText}>{t('auth.logout')}</Text>
           </TouchableOpacity>
         )}
@@ -178,6 +169,28 @@ export default function ProfileScreen() {
     </View>
   );
 }
+
+function MenuItem({
+  icon, label, onPress, last = false,
+}: {
+  icon: string; label: string; onPress: () => void; last?: boolean;
+}) {
+  return (
+    <TouchableOpacity
+      style={[styles.menuItem, !last && styles.menuItemBorder]}
+      onPress={onPress}
+      activeOpacity={0.6}
+    >
+      <Text style={styles.menuIcon}>{icon}</Text>
+      <Text style={styles.menuLabel}>{label}</Text>
+      <View style={styles.menuArrowWrap}>
+        <Text style={styles.menuArrow}>›</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+const CARD_W = 0; // used in bento grid calculation
 
 const achievementIcons = [
   { icon: '🍔', locked: false },
@@ -193,7 +206,7 @@ const achievementIcons = [
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.backgroundSecondary,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -201,138 +214,167 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    backgroundColor: colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
   },
   headerTitle: {
-    fontSize: 22,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '800',
     color: colors.textPrimary,
+    letterSpacing: -0.5,
   },
   guestBadge: {
+    backgroundColor: colors.backgroundTertiary,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: borderRadius.full,
+  },
+  guestBadgeText: {
     fontSize: 12,
     color: colors.textSecondary,
-    backgroundColor: colors.backgroundSecondary,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: borderRadius.full,
+    fontWeight: '600',
+  },
+
+  // Hero
+  heroSection: {
+    alignItems: 'center',
+    paddingTop: spacing.xxl,
+    paddingBottom: spacing.xl,
+    position: 'relative',
     overflow: 'hidden',
   },
-  profileCard: {
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    paddingVertical: spacing.xxl,
-    marginBottom: spacing.md,
+  heroBg: {
+    ...StyleSheet.absoluteFill,
   },
-  avatarContainer: {
+  avatarWrap: {
     marginBottom: spacing.md,
+    ...shadows.floating,
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
   },
   avatarPlaceholder: {
     backgroundColor: colors.backgroundSecondary,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 3,
+    borderColor: colors.primary,
   },
   avatarEmoji: {
-    fontSize: 36,
+    fontSize: 38,
   },
   username: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 22,
+    fontWeight: '800',
     color: colors.textPrimary,
-    marginBottom: spacing.xs,
+    letterSpacing: -0.3,
   },
-  bio: {
+  tagline: {
     fontSize: 14,
     color: colors.textSecondary,
+    marginTop: spacing.xs,
   },
   guestHint: {
     fontSize: 12,
     color: colors.textTertiary,
     marginTop: spacing.sm,
+    fontStyle: 'italic',
   },
-  statsRow: {
+
+  // Bento grid
+  bentoGrid: {
     flexDirection: 'row',
-    paddingHorizontal: spacing.md,
+    flexWrap: 'wrap',
+    paddingHorizontal: spacing.lg,
     gap: spacing.sm,
-    marginBottom: spacing.md,
+    marginBottom: spacing.xl,
   },
-  statCard: {
-    flex: 1,
-    backgroundColor: colors.card,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
+  bentoItem: {
+    width: (spacing.lg * 2 + CARD_W) / 2 - spacing.sm / 2,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
     alignItems: 'center',
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    minWidth: 75,
+    flex: 1,
+    minHeight: 90,
+    justifyContent: 'center',
   },
-  statEmoji: {
-    fontSize: 20,
+  bentoHighlight: {
+    flexBasis: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.xl,
+    minHeight: 70,
+  },
+  bentoEmoji: {
+    fontSize: 24,
     marginBottom: spacing.xs,
   },
-  statValue: {
-    fontSize: 18,
-    fontWeight: '700',
+  bentoValue: {
+    fontSize: 24,
+    fontWeight: '800',
     color: colors.textPrimary,
+    letterSpacing: -0.5,
   },
-  statLabel: {
-    fontSize: 10,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-    textAlign: 'center',
-  },
-  authSection: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.md,
-  },
-  loginButton: {
-    flex: 1,
-    backgroundColor: colors.accent,
-    borderRadius: borderRadius.md,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  loginButtonText: {
-    color: colors.textInverse,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  registerButton: {
-    flex: 1,
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.md,
-    paddingVertical: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.accent,
-  },
-  registerButtonText: {
+  bentoValueHighlight: {
+    fontSize: 32,
     color: colors.accent,
+  },
+  bentoLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+
+  // Auth section
+  authSection: {
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
+  },
+  loginBtn: {
+    borderRadius: borderRadius.md,
+    overflow: 'hidden',
+    ...shadows.button,
+  },
+  loginBtnGrad: {
+    paddingVertical: 15,
+    alignItems: 'center',
+  },
+  loginBtnText: {
+    color: colors.textInverse,
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  registerBtn: {
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderRadius: borderRadius.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+  },
+  registerBtnText: {
+    color: colors.textSecondary,
     fontSize: 16,
     fontWeight: '600',
   },
+
+  // Menu
   menuSection: {
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.md,
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.md,
-    overflow: 'hidden',
+    marginHorizontal: spacing.lg,
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.lg,
+    ...shadows.card,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: 15,
+    paddingHorizontal: spacing.xl,
+  },
+  menuItemBorder: {
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
   },
@@ -344,51 +386,75 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: colors.textPrimary,
+    fontWeight: '500',
+  },
+  menuArrowWrap: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.backgroundSecondary,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   menuArrow: {
-    fontSize: 20,
+    fontSize: 18,
     color: colors.textTertiary,
+    fontWeight: '300',
+    lineHeight: 20,
   },
-  achievementsSection: {
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.md,
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.md,
-    padding: spacing.lg,
+
+  // Achievements
+  achievementSection: {
+    marginHorizontal: spacing.lg,
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.lg,
+    padding: spacing.xl,
+    marginBottom: spacing.lg,
+    ...shadows.card,
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.textPrimary,
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
   },
   achievementGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.md,
   },
-  achievementItem: {
-    width: 40,
-    height: 40,
+  achiItem: {
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.backgroundSecondary,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  achievementIcon: {
-    fontSize: 24,
+  achiLocked: {
+    backgroundColor: colors.borderLight,
+    opacity: 0.7,
   },
-  logoutButton: {
-    marginHorizontal: spacing.md,
-    marginTop: spacing.md,
-    paddingVertical: 14,
+  achiIcon: {
+    fontSize: 22,
+  },
+  achiIconLocked: {
+    fontSize: 18,
+  },
+
+  // Logout
+  logoutBtn: {
+    marginHorizontal: spacing.lg,
+    paddingVertical: 15,
     alignItems: 'center',
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.md,
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderLight,
   },
   logoutText: {
     fontSize: 15,
     color: colors.error,
-    fontWeight: '500',
+    fontWeight: '600',
   },
 });

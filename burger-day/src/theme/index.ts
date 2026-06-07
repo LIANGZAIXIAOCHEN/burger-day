@@ -1,1 +1,1 @@
-export { colors, spacing, borderRadius } from './colors';
+export { colors, spacing, borderRadius, shadows } from './colors';

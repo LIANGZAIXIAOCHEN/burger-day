@@ -1,12 +1,13 @@
 import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import FeedScreen from '../screens/feed/FeedScreen';
 import CheckinScreen from '../screens/checkin/CheckinScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import RewardsScreen from '../screens/rewards/RewardsScreen';
-import { colors } from '../theme';
+import { colors, shadows } from '../theme';
 
 export type MainTabParamList = {
   Feed: undefined;
@@ -17,21 +18,35 @@ export type MainTabParamList = {
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
-function TabIcon({ icon, label, focused }: { icon: string; label: string; focused: boolean }) {
+const TAB_ICONS: Record<string, { active: string; inactive: string }> = {
+  Feed: { active: '📋', inactive: '📋' },
+  Rewards: { active: '🎁', inactive: '🎁' },
+  Profile: { active: '👤', inactive: '👤' },
+};
+
+function TabIcon({ routeName, focused }: { routeName: string; focused: boolean }) {
+  const icons = TAB_ICONS[routeName] || { active: '●', inactive: '○' };
   return (
     <View style={styles.tabIconContainer}>
-      <Text style={[styles.tabIcon, focused && styles.tabIconActive]}>{icon}</Text>
-      <Text style={[styles.tabLabel, focused && styles.tabLabelActive]}>{label}</Text>
+      <Text style={[styles.tabIcon, focused && styles.tabIconActive]}>
+        {focused ? icons.active : icons.inactive}
+      </Text>
+      <View style={[styles.tabDot, focused && styles.tabDotActive]} />
     </View>
   );
 }
 
 function CenterTabButton({ onPress }: { onPress: () => void }) {
   return (
-    <TouchableOpacity style={styles.centerButton} onPress={onPress} activeOpacity={0.8}>
-      <View style={styles.centerButtonInner}>
-        <Text style={styles.centerButtonIcon}>🍔</Text>
-      </View>
+    <TouchableOpacity style={styles.centerBtn} onPress={onPress} activeOpacity={0.85}>
+      <LinearGradient
+        colors={[colors.gradientStart, colors.gradientEnd]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.centerBtnGrad}
+      >
+        <Text style={styles.centerBtnIcon}>🍔</Text>
+      </LinearGradient>
     </TouchableOpacity>
   );
 }
@@ -53,18 +68,14 @@ export default function MainTabNavigator() {
         name="Feed"
         component={FeedScreen}
         options={{
-          tabBarIcon: ({ focused }) => (
-            <TabIcon icon="📋" label={t('feed.title')} focused={focused} />
-          ),
+          tabBarIcon: ({ focused }) => <TabIcon routeName="Feed" focused={focused} />,
         }}
       />
       <Tab.Screen
         name="Rewards"
         component={RewardsScreen}
         options={{
-          tabBarIcon: ({ focused }) => (
-            <TabIcon icon="🎁" label={t('rewards.title')} focused={focused} />
-          ),
+          tabBarIcon: ({ focused }) => <TabIcon routeName="Rewards" focused={focused} />,
         }}
       />
       <Tab.Screen
@@ -79,9 +90,7 @@ export default function MainTabNavigator() {
         name="Profile"
         component={ProfileScreen}
         options={{
-          tabBarIcon: ({ focused }) => (
-            <TabIcon icon="👤" label={t('profile.title')} focused={focused} />
-          ),
+          tabBarIcon: ({ focused }) => <TabIcon routeName="Profile" focused={focused} />,
         }}
       />
     </Tab.Navigator>
@@ -90,21 +99,23 @@ export default function MainTabNavigator() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.card,
     borderTopColor: colors.borderLight,
     borderTopWidth: 1,
     height: 85,
     paddingBottom: 25,
     paddingTop: 8,
-    elevation: 8,
+    paddingHorizontal: 10,
+    elevation: 10,
     shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
   },
   tabIconContainer: {
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 3,
   },
   tabIcon: {
     fontSize: 22,
@@ -113,34 +124,31 @@ const styles = StyleSheet.create({
   tabIconActive: {
     opacity: 1,
   },
-  tabLabel: {
-    fontSize: 10,
-    color: colors.tabInactive,
-    marginTop: 2,
+  tabDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'transparent',
   },
-  tabLabelActive: {
-    color: colors.tabActive,
-    fontWeight: '600',
+  tabDotActive: {
+    backgroundColor: colors.tabActive,
   },
-  centerButton: {
-    top: -20,
+
+  // Center button
+  centerBtn: {
+    top: -16,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  centerButtonInner: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: colors.accent,
+  centerBtnGrad: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    ...shadows.floating,
   },
-  centerButtonIcon: {
+  centerBtnIcon: {
     fontSize: 28,
   },
 });

@@ -16,9 +16,10 @@ import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../supabase/client';
 import { useAuth } from '../../context/AuthContext';
-import { colors, spacing, borderRadius } from '../../theme';
+import { colors, spacing, borderRadius, shadows } from '../../theme';
 import {
   addGuestCheckin,
   getGuestProfile,
@@ -52,6 +53,8 @@ export default function CheckinScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [earnedPoints, setEarnedPoints] = useState(0);
   const [step, setStep] = useState<'location' | 'store' | 'photo' | 'review' | 'done'>('location');
+  const STEPS = ['location', 'store', 'photo', 'review'] as const;
+  const currentStepIndex = STEPS.indexOf(step as typeof STEPS[number]);
 
   // Request location permission
   const requestLocation = async () => {
@@ -260,11 +263,29 @@ export default function CheckinScreen() {
     setNearbyStores([]);
   };
 
+  function StepDots() {
+    return (
+      <View style={styles.stepIndicator}>
+        {STEPS.map((s, i) => (
+          <View
+            key={s}
+            style={[
+              styles.stepDot,
+              i === currentStepIndex && styles.stepDotActive,
+              i < currentStepIndex && { backgroundColor: colors.accent },
+            ]}
+          />
+        ))}
+      </View>
+    );
+  }
+
   // Step: Location
   if (step === 'location') {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.stepContainer}>
+          <StepDots />
           <Text style={styles.stepEmoji}>📍</Text>
           <Text style={styles.stepTitle}>{t('checkin.findStore')}</Text>
           <Text style={styles.stepDesc}>{t('checkin.locationPermission')}</Text>
@@ -291,6 +312,7 @@ export default function CheckinScreen() {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.header}>
+          <StepDots />
           <Text style={styles.headerTitle}>{t('checkin.nearbyStores')}</Text>
         </View>
         <ScrollView style={styles.storeList}>
@@ -324,6 +346,7 @@ export default function CheckinScreen() {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.stepContainer}>
+          <StepDots />
           <Text style={styles.stepEmoji}>📸</Text>
           <Text style={styles.stepTitle}>{t('checkin.takePhoto')}</Text>
           <Text style={styles.stepDesc}>
@@ -368,6 +391,9 @@ export default function CheckinScreen() {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <ScrollView style={styles.reviewContainer}>
+          <View style={{ alignItems: 'center', marginBottom: spacing.lg }}>
+            <StepDots />
+          </View>
           <Text style={styles.stepEmoji}>⭐</Text>
           <Text style={styles.stepTitle}>{t('checkin.rating')}</Text>
 
@@ -455,7 +481,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.borderLight,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -466,52 +492,57 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xxl,
   },
   stepEmoji: {
-    fontSize: 64,
+    fontSize: 72,
     marginBottom: spacing.lg,
   },
   successEmoji: {
-    fontSize: 80,
+    fontSize: 88,
     marginBottom: spacing.lg,
   },
   stepTitle: {
-    fontSize: 22,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '800',
     color: colors.textPrimary,
     marginBottom: spacing.sm,
+    letterSpacing: -0.3,
   },
   stepDesc: {
     fontSize: 15,
     color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: spacing.xxxl,
     lineHeight: 22,
+    paddingHorizontal: spacing.lg,
   },
   primaryButton: {
     backgroundColor: colors.accent,
     borderRadius: borderRadius.md,
-    paddingVertical: 14,
-    paddingHorizontal: 32,
+    paddingVertical: 15,
+    paddingHorizontal: spacing.xxxl,
     alignItems: 'center',
     minWidth: 200,
+    ...shadows.button,
   },
   buttonDisabled: {
     opacity: 0.7,
   },
   primaryButtonText: {
     color: colors.textInverse,
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
   },
   secondaryButton: {
-    backgroundColor: colors.backgroundSecondary,
+    backgroundColor: colors.card,
     borderRadius: borderRadius.md,
     paddingVertical: 14,
-    paddingHorizontal: 32,
+    paddingHorizontal: spacing.xxl,
     alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.border,
   },
   secondaryButtonText: {
     color: colors.textSecondary,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
   },
   // Store list
@@ -523,18 +554,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.card,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
     padding: spacing.lg,
     marginBottom: spacing.md,
     borderWidth: 2,
-    borderColor: colors.border,
+    borderColor: colors.borderLight,
+    ...shadows.card,
   },
   storeCardSelected: {
     borderColor: colors.primary,
     backgroundColor: '#FFFDF0',
   },
   storeIcon: {
-    fontSize: 28,
+    fontSize: 32,
     marginRight: spacing.md,
   },
   storeInfo: {
@@ -542,7 +574,7 @@ const styles = StyleSheet.create({
   },
   storeName: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.textPrimary,
     marginBottom: spacing.xs,
   },
@@ -553,41 +585,51 @@ const styles = StyleSheet.create({
   storeArrow: {
     fontSize: 24,
     color: colors.textTertiary,
+    backgroundColor: colors.backgroundSecondary,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    textAlign: 'center',
+    lineHeight: 28,
+    overflow: 'hidden',
   },
   // Photo
   photoPreviewContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
-    marginBottom: spacing.lg,
+    justifyContent: 'center',
+    marginBottom: spacing.xl,
   },
   photoPreview: {
-    width: 100,
-    height: 100,
+    width: 90,
+    height: 90,
     borderRadius: borderRadius.md,
   },
   photoButtons: {
     flexDirection: 'row',
     gap: spacing.md,
-    marginBottom: 32,
+    marginBottom: spacing.xxl,
   },
   photoButton: {
-    backgroundColor: colors.backgroundSecondary,
-    borderRadius: borderRadius.md,
-    padding: spacing.lg,
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.lg,
+    padding: spacing.xl,
     alignItems: 'center',
     borderWidth: 2,
     borderColor: colors.border,
     borderStyle: 'dashed',
-    minWidth: 120,
+    minWidth: 130,
+    ...shadows.card,
   },
   photoButtonIcon: {
-    fontSize: 28,
+    fontSize: 32,
     marginBottom: spacing.xs,
   },
   photoButtonText: {
     fontSize: 13,
     color: colors.textSecondary,
+    fontWeight: '600',
   },
   // Review
   reviewContainer: {
@@ -598,37 +640,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     gap: spacing.sm,
-    marginBottom: 32,
+    marginBottom: spacing.xxl,
     marginTop: spacing.lg,
   },
   star: {
-    fontSize: 40,
+    fontSize: 44,
     color: colors.starInactive,
   },
   starActive: {
     color: colors.starActive,
   },
   reviewInput: {
-    backgroundColor: colors.backgroundSecondary,
+    backgroundColor: colors.card,
     borderRadius: borderRadius.md,
     padding: spacing.lg,
     fontSize: 16,
     color: colors.textPrimary,
     minHeight: 120,
     textAlignVertical: 'top',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
     marginBottom: spacing.xl,
+    ...shadows.card,
   },
   summaryCard: {
-    backgroundColor: colors.backgroundSecondary,
-    borderRadius: borderRadius.md,
+    backgroundColor: colors.cardWarm,
+    borderRadius: borderRadius.lg,
     padding: spacing.lg,
     marginBottom: spacing.xl,
+    ...shadows.card,
   },
   summaryLabel: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.textPrimary,
     marginBottom: spacing.xs,
   },
@@ -639,17 +683,34 @@ const styles = StyleSheet.create({
   },
   summaryPhotos: {
     fontSize: 13,
-    color: colors.textSecondary,
+    color: colors.textTertiary,
   },
   navButtons: {
     flexDirection: 'row',
     gap: spacing.md,
     justifyContent: 'center',
+    marginTop: spacing.md,
   },
   pointsEarned: {
-    fontSize: 36,
-    fontWeight: '700',
+    fontSize: 42,
+    fontWeight: '800',
     color: colors.accent,
     marginTop: spacing.md,
+    letterSpacing: -1,
+  },
+  stepIndicator: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.xxl,
+  },
+  stepDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.border,
+  },
+  stepDotActive: {
+    backgroundColor: colors.accent,
+    width: 24,
   },
 });
