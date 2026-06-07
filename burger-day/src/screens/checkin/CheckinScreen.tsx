@@ -14,9 +14,19 @@ import { useTranslation } from 'react-i18next';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../supabase/client';
 import { useAuth } from '../../context/AuthContext';
 import { colors, spacing, borderRadius } from '../../theme';
+import {
+  addGuestCheckin,
+  getGuestProfile,
+  updateGuestProfile,
+  calculateGuestPoints,
+} from '../../services/localStorage';
+import type { Checkin } from '../../lib/database.types';
+import type { RootStackParamList } from '../../navigation/AppNavigator';
 
 interface NearbyStore {
   id: string;
@@ -30,7 +40,8 @@ interface NearbyStore {
 export default function CheckinScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { user, refreshProfile } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { user, isGuest, refreshProfile, refreshGuestProfile } = useAuth();
 
   const [nearbyStores, setNearbyStores] = useState<NearbyStore[]>([]);
   const [selectedStore, setSelectedStore] = useState<NearbyStore | null>(null);
@@ -39,6 +50,7 @@ export default function CheckinScreen() {
   const [review, setReview] = useState('');
   const [searching, setSearching] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [earnedPoints, setEarnedPoints] = useState(0);
   const [step, setStep] = useState<'location' | 'store' | 'photo' | 'review' | 'done'>('location');
 
   // Request location permission
@@ -137,7 +149,7 @@ export default function CheckinScreen() {
 
   // Submit checkin
   const handleSubmit = async () => {
-    if (!selectedStore || !user) return;
+    if (!selectedStore) return;
     if (rating === 0) {
       Alert.alert('', t('checkin.rating'));
       return;
@@ -145,57 +157,94 @@ export default function CheckinScreen() {
 
     setSubmitting(true);
     try {
-      // Upload photos to Supabase Storage
-      const photoUrls: string[] = [];
-      for (const photoUri of photos) {
-        const photoId = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        const response = await fetch(photoUri);
-        const blob = await response.blob();
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('checkin-photos')
-          .upload(photoId, blob, { contentType: 'image/jpeg' });
+      if (isGuest) {
+        // ── Guest mode: save checkin locally ──
+        const guest = await getGuestProfile();
+        const today = new Date().toISOString().split('T')[0];
+        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        const isConsecutive = guest.last_checkin_date === yesterday;
+        const newStreak = isConsecutive ? guest.current_streak + 1 : 1;
 
-        if (uploadError) {
-          console.error('Upload error:', uploadError);
-          continue;
-        }
-        const { data: urlData } = supabase.storage
-          .from('checkin-photos')
-          .getPublicUrl(photoId);
-        if (urlData) {
-          photoUrls.push(urlData.publicUrl);
-        }
-      }
+        const { points } = calculateGuestPoints(rating, photos.length, review, newStreak);
 
-      // Insert checkin record
-      const { data: checkin, error: checkinError } = await supabase
-        .from('checkins')
-        .insert({
-          user_id: user.id,
+        const localCheckin: Checkin = {
+          id: 'local_' + Date.now().toString(36),
+          user_id: guest.id,
           store_id: selectedStore.id,
           store_name: selectedStore.name,
           address: selectedStore.address,
           lat: selectedStore.lat,
           lng: selectedStore.lng,
-          photo_urls: photoUrls,
+          photo_urls: photos,
           rating,
           review: review.trim() || null,
-          points_earned: 0, // Will be calculated by Edge Function
-        })
-        .select()
-        .single();
+          points_earned: points,
+          created_at: new Date().toISOString(),
+        };
 
-      if (checkinError) throw checkinError;
+        await addGuestCheckin(localCheckin);
+        await updateGuestProfile({
+          total_points: guest.total_points + points,
+          total_checkins: guest.total_checkins + 1,
+          current_streak: newStreak,
+          max_streak: Math.max(guest.max_streak, newStreak),
+          last_checkin_date: today,
+        });
 
-      // Create a post for the feed
-      await supabase.from('posts').insert({
-        user_id: user.id,
-        checkin_id: checkin.id,
-        content: review.trim() || null,
-      });
+        setEarnedPoints(points);
+        await refreshGuestProfile();
+        setStep('done');
+      } else if (user) {
+        // ── Logged-in mode: save to Supabase ──
+        const photoUrls: string[] = [];
+        for (const photoUri of photos) {
+          const photoId = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          const response = await fetch(photoUri);
+          const blob = await response.blob();
+          const { error: uploadError } = await supabase.storage
+            .from('checkin-photos')
+            .upload(photoId, blob, { contentType: 'image/jpeg' });
 
-      await refreshProfile();
-      setStep('done');
+          if (uploadError) {
+            console.error('Upload error:', uploadError);
+            continue;
+          }
+          const { data: urlData } = supabase.storage
+            .from('checkin-photos')
+            .getPublicUrl(photoId);
+          if (urlData) {
+            photoUrls.push(urlData.publicUrl);
+          }
+        }
+
+        const { data: checkin, error: checkinError } = await supabase
+          .from('checkins')
+          .insert({
+            user_id: user.id,
+            store_id: selectedStore.id,
+            store_name: selectedStore.name,
+            address: selectedStore.address,
+            lat: selectedStore.lat,
+            lng: selectedStore.lng,
+            photo_urls: photoUrls,
+            rating,
+            review: review.trim() || null,
+            points_earned: 0, // Will be calculated by Edge Function
+          })
+          .select()
+          .single();
+
+        if (checkinError) throw checkinError;
+
+        await supabase.from('posts').insert({
+          user_id: user.id,
+          checkin_id: checkin.id,
+          content: review.trim() || null,
+        });
+
+        await refreshProfile();
+        setStep('done');
+      }
     } catch (error: any) {
       Alert.alert(t('common.error'), error.message);
     }
@@ -382,7 +431,7 @@ export default function CheckinScreen() {
       <View style={styles.stepContainer}>
         <Text style={styles.successEmoji}>🎉</Text>
         <Text style={styles.stepTitle}>{t('checkin.checkinSuccess')}</Text>
-        <Text style={styles.pointsEarned}>+50 {t('rewards.pointsPrefix')}</Text>
+        <Text style={styles.pointsEarned}>+{earnedPoints} {t('rewards.pointsPrefix')}</Text>
         <TouchableOpacity style={[styles.primaryButton, { marginTop: 32 }]} onPress={resetCheckin}>
           <Text style={styles.primaryButtonText}>{t('checkin.title')}</Text>
         </TouchableOpacity>

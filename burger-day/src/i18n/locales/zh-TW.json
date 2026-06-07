@@ -88,7 +88,8 @@
     "language": "語言",
     "editProfile": "編輯資料",
     "redeemStore": "兌換商店",
-    "noAchievements": "還沒有獲得成就，快去打卡吧！"
+    "noAchievements": "還沒有獲得成就，快去打卡吧！",
+    "loginPrompt": "註冊帳號即可同步資料到雲端！"
   },
   "rewards": {
     "title": "兌換中心",

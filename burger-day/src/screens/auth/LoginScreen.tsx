@@ -14,14 +14,10 @@ import { useTranslation } from 'react-i18next';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, spacing, borderRadius } from '../../theme';
 import { useAuth } from '../../context/AuthContext';
-
-type AuthStackParamList = {
-  Login: undefined;
-  Register: undefined;
-};
+import type { RootStackParamList } from '../../navigation/AppNavigator';
 
 type Props = {
-  navigation: NativeStackNavigationProp<AuthStackParamList, 'Login'>;
+  navigation: NativeStackNavigationProp<RootStackParamList, 'Login'>;
 };
 
 export default function LoginScreen({ navigation }: Props) {
@@ -39,6 +35,10 @@ export default function LoginScreen({ navigation }: Props) {
     setLoading(true);
     try {
       await signIn(email.trim(), password);
+      // Dismiss the modal back to main app
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+      }
     } catch (error: any) {
       Alert.alert(t('common.error'), error.message);
     } finally {

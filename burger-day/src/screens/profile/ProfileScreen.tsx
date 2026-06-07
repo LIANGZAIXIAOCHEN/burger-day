@@ -10,19 +10,33 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
 import { colors, spacing, borderRadius } from '../../theme';
+import type { RootStackParamList } from '../../navigation/AppNavigator';
 
 export default function ProfileScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { profile, signOut } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { session, profile, isGuest, guestProfile, signOut } = useAuth();
 
   const handleLogout = () => {
     Alert.alert(t('auth.logout'), 'Are you sure?', [
       { text: t('common.cancel'), style: 'cancel' },
       { text: t('auth.logout'), style: 'destructive', onPress: signOut },
     ]);
+  };
+
+  // Use real profile if logged in, or guest profile for local mode
+  const displayProfile = {
+    username: session ? (profile?.username ?? 'Burger Lover') : (guestProfile?.username ?? 'Burger Lover'),
+    avatar_url: session ? profile?.avatar_url : guestProfile?.avatar_url,
+    total_points: session ? (profile?.total_points ?? 0) : (guestProfile?.total_points ?? 0),
+    total_checkins: session ? (profile?.total_checkins ?? 0) : (guestProfile?.total_checkins ?? 0),
+    current_streak: session ? (profile?.current_streak ?? 0) : (guestProfile?.current_streak ?? 0),
+    max_streak: session ? (profile?.max_streak ?? 0) : (guestProfile?.max_streak ?? 0),
   };
 
   const StatCard = ({ label, value, emoji }: { label: string; value: number; emoji: string }) => (
@@ -45,47 +59,71 @@ export default function ProfileScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{t('profile.title')}</Text>
+        {isGuest && (
+          <Text style={styles.guestBadge}>Guest</Text>
+        )}
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Profile Card */}
         <View style={styles.profileCard}>
           <View style={styles.avatarContainer}>
-            {profile?.avatar_url ? (
-              <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+            {displayProfile.avatar_url ? (
+              <Image source={{ uri: displayProfile.avatar_url }} style={styles.avatar} />
             ) : (
               <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                <Text style={styles.avatarEmoji}>😊</Text>
+                <Text style={styles.avatarEmoji}>{isGuest ? '👤' : '😊'}</Text>
               </View>
             )}
           </View>
-          <Text style={styles.username}>{profile?.username || 'Burger Lover'}</Text>
+          <Text style={styles.username}>{displayProfile.username}</Text>
           <Text style={styles.bio}>🍔 {t('app.tagline')}</Text>
+          {isGuest && (
+            <Text style={styles.guestHint}>{t('profile.loginPrompt')}</Text>
+          )}
         </View>
 
         {/* Stats Row */}
         <View style={styles.statsRow}>
           <StatCard
             label={t('profile.totalPoints')}
-            value={profile?.total_points ?? 0}
+            value={displayProfile.total_points}
             emoji="⭐"
           />
           <StatCard
             label={t('profile.totalCheckins')}
-            value={profile?.total_checkins ?? 0}
+            value={displayProfile.total_checkins}
             emoji="📋"
           />
           <StatCard
             label={t('profile.currentStreak')}
-            value={profile?.current_streak ?? 0}
+            value={displayProfile.current_streak}
             emoji="🔥"
           />
           <StatCard
             label={t('profile.maxStreak')}
-            value={profile?.max_streak ?? 0}
+            value={displayProfile.max_streak}
             emoji="🏆"
           />
         </View>
+
+        {/* Auth Buttons for Guest */}
+        {isGuest && (
+          <View style={styles.authSection}>
+            <TouchableOpacity
+              style={styles.loginButton}
+              onPress={() => navigation.navigate('Login')}
+            >
+              <Text style={styles.loginButtonText}>{t('auth.login')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.registerButton}
+              onPress={() => navigation.navigate('Register')}
+            >
+              <Text style={styles.registerButtonText}>{t('auth.register')}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Menu Items */}
         <View style={styles.menuSection}>
@@ -128,10 +166,12 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Logout */}
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutText}>{t('auth.logout')}</Text>
-        </TouchableOpacity>
+        {/* Logout (only for logged-in users) */}
+        {!isGuest && (
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Text style={styles.logoutText}>{t('auth.logout')}</Text>
+          </TouchableOpacity>
+        )}
 
         <View style={{ height: 100 }} />
       </ScrollView>
@@ -170,6 +210,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.textPrimary,
   },
+  guestBadge: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    backgroundColor: colors.backgroundSecondary,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: borderRadius.full,
+    overflow: 'hidden',
+  },
   profileCard: {
     alignItems: 'center',
     backgroundColor: colors.background,
@@ -201,6 +250,11 @@ const styles = StyleSheet.create({
   bio: {
     fontSize: 14,
     color: colors.textSecondary,
+  },
+  guestHint: {
+    fontSize: 12,
+    color: colors.textTertiary,
+    marginTop: spacing.sm,
   },
   statsRow: {
     flexDirection: 'row',
@@ -234,6 +288,38 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: spacing.xs,
     textAlign: 'center',
+  },
+  authSection: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.md,
+  },
+  loginButton: {
+    flex: 1,
+    backgroundColor: colors.accent,
+    borderRadius: borderRadius.md,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  loginButtonText: {
+    color: colors.textInverse,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  registerButton: {
+    flex: 1,
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.md,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.accent,
+  },
+  registerButtonText: {
+    color: colors.accent,
+    fontSize: 16,
+    fontWeight: '600',
   },
   menuSection: {
     backgroundColor: colors.background,

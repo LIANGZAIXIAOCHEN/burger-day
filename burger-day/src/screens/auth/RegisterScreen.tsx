@@ -14,14 +14,10 @@ import { useTranslation } from 'react-i18next';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, spacing, borderRadius } from '../../theme';
 import { useAuth } from '../../context/AuthContext';
-
-type AuthStackParamList = {
-  Login: undefined;
-  Register: undefined;
-};
+import type { RootStackParamList } from '../../navigation/AppNavigator';
 
 type Props = {
-  navigation: NativeStackNavigationProp<AuthStackParamList, 'Register'>;
+  navigation: NativeStackNavigationProp<RootStackParamList, 'Register'>;
 };
 
 export default function RegisterScreen({ navigation }: Props) {
@@ -47,12 +43,19 @@ export default function RegisterScreen({ navigation }: Props) {
     }
     setLoading(true);
     try {
-      await signUp(email.trim(), password);
-      Alert.alert(
-        t('auth.register'),
-        'Verification email sent. Please check your inbox.',
-        [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
-      );
+      const result = await signUp(email.trim(), password);
+      if (result === 'auto-login') {
+        // Automatically logged in — dismiss modal
+        if (navigation.canGoBack()) {
+          navigation.goBack();
+        }
+      } else {
+        Alert.alert(
+          t('auth.register'),
+          'Verification email sent. Please check your inbox.',
+          [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
+        );
+      }
     } catch (error: any) {
       Alert.alert(t('common.error'), error.message);
     } finally {

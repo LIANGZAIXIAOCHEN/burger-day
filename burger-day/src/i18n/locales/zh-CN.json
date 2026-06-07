@@ -88,7 +88,8 @@
     "language": "语言",
     "editProfile": "编辑资料",
     "redeemStore": "兑换商店",
-    "noAchievements": "还没有获得成就，快去打卡吧！"
+    "noAchievements": "还没有获得成就，快去打卡吧！",
+    "loginPrompt": "注册账号即可同步数据到云端！"
   },
   "rewards": {
     "title": "兑换中心",

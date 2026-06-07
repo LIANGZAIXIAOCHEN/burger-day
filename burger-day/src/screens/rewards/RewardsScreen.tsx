@@ -20,7 +20,7 @@ import type { Burger, Reward } from '../../lib/database.types';
 export default function RewardsScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile, isGuest, guestProfile, refreshProfile } = useAuth();
   const [burgers, setBurgers] = useState<Burger[]>([]);
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,7 +50,12 @@ export default function RewardsScreen() {
   };
 
   const handleRedeem = async (burger: Burger) => {
-    if (!user || !profile) return;
+    if (!user || !profile) {
+      if (isGuest) {
+        Alert.alert(t('auth.login'), t('profile.loginPrompt'));
+      }
+      return;
+    }
 
     if (profile.total_points < burger.points_reward) {
       Alert.alert(t('rewards.insufficientPoints'));
@@ -117,15 +122,17 @@ export default function RewardsScreen() {
       <TouchableOpacity
         style={[
           styles.redeemButton,
-          (profile && profile.total_points < item.points_reward) && styles.redeemButtonDisabled,
+          (isGuest || (profile && profile.total_points < item.points_reward)) && styles.redeemButtonDisabled,
         ]}
         onPress={() => handleRedeem(item)}
-        disabled={redeeming === item.id}
+        disabled={isGuest || redeeming === item.id}
       >
         {redeeming === item.id ? (
           <ActivityIndicator color={colors.textInverse} size="small" />
         ) : (
-          <Text style={styles.redeemButtonText}>{t('rewards.redeem')}</Text>
+          <Text style={styles.redeemButtonText}>
+            {isGuest ? t('auth.login') : t('rewards.redeem')}
+          </Text>
         )}
       </TouchableOpacity>
     </View>
@@ -151,7 +158,7 @@ export default function RewardsScreen() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{t('rewards.title')}</Text>
         <Text style={styles.headerPoints}>
-          {profile?.total_points ?? 0} {t('rewards.pointsPrefix')}
+          {isGuest ? (guestProfile?.total_points ?? 0) : (profile?.total_points ?? 0)} {t('rewards.pointsPrefix')}
         </Text>
       </View>
 

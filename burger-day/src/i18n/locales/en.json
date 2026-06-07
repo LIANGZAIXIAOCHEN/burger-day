@@ -88,7 +88,8 @@
     "language": "Language",
     "editProfile": "Edit Profile",
     "redeemStore": "Rewards Store",
-    "noAchievements": "No achievements yet. Start checking in!"
+    "noAchievements": "No achievements yet. Start checking in!",
+    "loginPrompt": "Sign up to save your progress to the cloud!"
   },
   "rewards": {
     "title": "Rewards",
